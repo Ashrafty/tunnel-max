@@ -89,7 +89,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
           case VpnConnectionState.connected:
             statusText = 'Connected';
             subtitleText = status.connectedServer ?? 'Unknown Server';
-            textColor = AppTheme.accentGreen;
+            textColor = Theme.of(context).colorScheme.secondary;
             break;
           case VpnConnectionState.connecting:
             statusText = 'Connecting';
@@ -243,7 +243,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
           onPressed = canDisconnect ? () => _disconnect(ref) : null;
         } else {
           buttonText = 'Connect';
-          backgroundColor = AppTheme.accentGreen;
+          backgroundColor = Theme.of(context).colorScheme.secondary;
           onPressed = canConnect ? () => _connect(ref, selectedConfig) : null;
         }
 
@@ -354,8 +354,8 @@ class _StatusIndicator extends StatelessWidget {
 
     switch (status.state) {
       case VpnConnectionState.connected:
-        indicatorColor = AppTheme.accentGreen;
-        borderColor = AppTheme.accentGreen;
+        indicatorColor = AppTheme.successGreen;
+        borderColor = AppTheme.successGreen;
         iconData = Icons.vpn_lock;
         break;
       case VpnConnectionState.connecting:
@@ -511,9 +511,9 @@ class _ConnectionTimerState extends State<_ConnectionTimer> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.accentGreen.withValues(alpha: 0.1),
+        color: AppTheme.successGreen.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.accentGreen.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.successGreen.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

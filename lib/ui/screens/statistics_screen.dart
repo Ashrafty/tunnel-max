@@ -54,9 +54,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Statistics'),
-        backgroundColor: AppTheme.primaryBlue,
-        foregroundColor: Colors.white,
-        elevation: 0,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.date_range),
@@ -214,7 +211,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
         fontWeight: FontWeight.bold,
-        color: AppTheme.primaryBlue,
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
   }
@@ -253,14 +250,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
               children: [
                 Icon(
                   Icons.wifi,
-                  color: AppTheme.accentGreen,
+                  color: Theme.of(context).colorScheme.secondary,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Connected',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppTheme.accentGreen,
+                    color: Theme.of(context).colorScheme.secondary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -283,7 +280,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     icon: Icons.download,
                     label: 'Downloaded',
                     value: stats.formattedBytesReceived,
-                    color: AppTheme.primaryBlue,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -292,7 +289,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     icon: Icons.upload,
                     label: 'Uploaded',
                     value: stats.formattedBytesSent,
-                    color: AppTheme.accentGreen,
+                    color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
               ],
@@ -307,7 +304,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     icon: Icons.speed,
                     label: 'Download Speed',
                     value: stats.formattedDownloadSpeed,
-                    color: AppTheme.primaryBlue,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -316,7 +313,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     icon: Icons.speed,
                     label: 'Upload Speed',
                     value: stats.formattedUploadSpeed,
-                    color: AppTheme.accentGreen,
+                    color: Theme.of(context).colorScheme.secondary,
                   ),
                 ),
               ],
@@ -340,7 +337,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     'Total Data',
                     summary.formattedTotalData,
                     Icons.data_usage,
-                    AppTheme.primaryBlue,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 Expanded(
@@ -348,7 +345,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     'Connections',
                     '${summary.totalConnections}',
                     Icons.link,
-                    AppTheme.accentGreen,
+                    Theme.of(context).colorScheme.secondary,
                   ),
                 ),
               ],
@@ -363,7 +360,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     'Success Rate',
                     '${summary.successRate.toStringAsFixed(1)}%',
                     Icons.check_circle,
-                    summary.successRate > 90 ? AppTheme.accentGreen : Colors.orange,
+                    summary.successRate > 90 ? AppTheme.successGreen : Colors.orange,
                   ),
                 ),
                 Expanded(
@@ -371,7 +368,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                     'Total Time',
                     _formatDuration(summary.totalConnectionTime),
                     Icons.timer,
-                    AppTheme.primaryBlue,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
@@ -457,12 +454,12 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                         return FlSpot(entry.key.toDouble(), entry.value.totalBytes.toDouble());
                       }).toList(),
                       isCurved: true,
-                      color: AppTheme.primaryBlue,
+                      color: Theme.of(context).colorScheme.primary,
                       barWidth: 3,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: AppTheme.primaryBlue.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                       ),
                     ),
                   ],
@@ -477,7 +474,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -551,7 +548,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                       barRods: [
                         BarChartRodData(
                           toY: entry.value.connectionTime.inSeconds.toDouble(),
-                          color: AppTheme.accentGreen,
+                          color: Theme.of(context).colorScheme.secondary,
                           width: 16,
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
                         ),
@@ -569,7 +566,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
                   width: 12,
                   height: 12,
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGreen,
+                    color: Theme.of(context).colorScheme.secondary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -647,7 +644,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen>
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentGreen,
+                  color: AppTheme.successGreen,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(

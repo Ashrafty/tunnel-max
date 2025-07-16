@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import '../ui/theme/app_theme.dart';
 
 part 'user_preferences.g.dart';
 
@@ -14,6 +15,9 @@ class UserPreferences {
   
   /// Application theme mode
   final AppThemeMode themeMode;
+  
+  /// Application theme color
+  final AppThemeColor themeColor;
   
   /// Show notifications for connection status changes
   final bool showNotifications;
@@ -37,6 +41,7 @@ class UserPreferences {
     this.autoConnect = false,
     this.autoReconnect = true,
     this.themeMode = AppThemeMode.system,
+    this.themeColor = AppThemeColor.darkGreen,
     this.showNotifications = true,
     this.notifyOnConnect = true,
     this.notifyOnDisconnect = true,
@@ -50,6 +55,7 @@ class UserPreferences {
     bool? autoConnect,
     bool? autoReconnect,
     AppThemeMode? themeMode,
+    AppThemeColor? themeColor,
     bool? showNotifications,
     bool? notifyOnConnect,
     bool? notifyOnDisconnect,
@@ -61,6 +67,7 @@ class UserPreferences {
       autoConnect: autoConnect ?? this.autoConnect,
       autoReconnect: autoReconnect ?? this.autoReconnect,
       themeMode: themeMode ?? this.themeMode,
+      themeColor: themeColor ?? this.themeColor,
       showNotifications: showNotifications ?? this.showNotifications,
       notifyOnConnect: notifyOnConnect ?? this.notifyOnConnect,
       notifyOnDisconnect: notifyOnDisconnect ?? this.notifyOnDisconnect,
@@ -85,6 +92,7 @@ class UserPreferences {
           autoConnect == other.autoConnect &&
           autoReconnect == other.autoReconnect &&
           themeMode == other.themeMode &&
+          themeColor == other.themeColor &&
           showNotifications == other.showNotifications &&
           notifyOnConnect == other.notifyOnConnect &&
           notifyOnDisconnect == other.notifyOnDisconnect &&
@@ -97,6 +105,7 @@ class UserPreferences {
       autoConnect.hashCode ^
       autoReconnect.hashCode ^
       themeMode.hashCode ^
+      themeColor.hashCode ^
       showNotifications.hashCode ^
       notifyOnConnect.hashCode ^
       notifyOnDisconnect.hashCode ^
@@ -114,6 +123,8 @@ enum AppThemeMode {
   @JsonValue('system')
   system,
 }
+
+
 
 /// Extension to convert AppThemeMode to Flutter ThemeMode
 extension AppThemeModeExtension on AppThemeMode {

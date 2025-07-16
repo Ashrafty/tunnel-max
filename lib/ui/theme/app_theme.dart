@@ -1,40 +1,132 @@
 import 'package:flutter/material.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+/// Available theme colors for the application
+enum AppThemeColor {
+  @JsonValue('darkGreen')
+  darkGreen,
+  @JsonValue('blue')
+  blue,
+  @JsonValue('purple')
+  purple,
+  @JsonValue('orange')
+  orange,
+  @JsonValue('red')
+  red,
+  @JsonValue('teal')
+  teal,
+}
+
+/// Extension to get color scheme data for each theme color
+extension AppThemeColorExtension on AppThemeColor {
+  String get displayName {
+    switch (this) {
+      case AppThemeColor.darkGreen:
+        return 'Dark Green';
+      case AppThemeColor.blue:
+        return 'Blue';
+      case AppThemeColor.purple:
+        return 'Purple';
+      case AppThemeColor.orange:
+        return 'Orange';
+      case AppThemeColor.red:
+        return 'Red';
+      case AppThemeColor.teal:
+        return 'Teal';
+    }
+  }
+
+  Color get primaryColor {
+    switch (this) {
+      case AppThemeColor.darkGreen:
+        return const Color(0xFF3A4D2D);
+      case AppThemeColor.blue:
+        return const Color(0xFF2196F3);
+      case AppThemeColor.purple:
+        return const Color(0xFF9C27B0);
+      case AppThemeColor.orange:
+        return const Color(0xFFFF9800);
+      case AppThemeColor.red:
+        return const Color(0xFFF44336);
+      case AppThemeColor.teal:
+        return const Color(0xFF009688);
+    }
+  }
+
+  Color get primaryDarkColor {
+    switch (this) {
+      case AppThemeColor.darkGreen:
+        return const Color(0xFF2D3A21);
+      case AppThemeColor.blue:
+        return const Color(0xFF1976D2);
+      case AppThemeColor.purple:
+        return const Color(0xFF7B1FA2);
+      case AppThemeColor.orange:
+        return const Color(0xFFF57C00);
+      case AppThemeColor.red:
+        return const Color(0xFFD32F2F);
+      case AppThemeColor.teal:
+        return const Color(0xFF00796B);
+    }
+  }
+
+  Color get accentColor {
+    switch (this) {
+      case AppThemeColor.darkGreen:
+        return const Color(0xFF4CAF50);
+      case AppThemeColor.blue:
+        return const Color(0xFF4CAF50);
+      case AppThemeColor.purple:
+        return const Color(0xFFE91E63);
+      case AppThemeColor.orange:
+        return const Color(0xFF4CAF50);
+      case AppThemeColor.red:
+        return const Color(0xFFFF9800);
+      case AppThemeColor.teal:
+        return const Color(0xFF4CAF50);
+    }
+  }
+}
 
 class AppTheme {
-  // VPN Client Brand Colors
-  static const Color primaryBlue = Color(0xFF2196F3);
-  static const Color primaryDark = Color(0xFF1976D2);
-  static const Color accentGreen = Color(0xFF4CAF50);
+  // Common colors
   static const Color warningOrange = Color(0xFFFF9800);
   static const Color errorRed = Color(0xFFF44336);
+  static const Color successGreen = Color(0xFF4CAF50);
   static const Color surfaceLight = Color(0xFFF5F5F5);
   static const Color surfaceDark = Color(0xFF121212);
+  
+  // Additional theme colors used throughout the app
+  static const Color primaryBlue = Color(0xFF2196F3);
+  static const Color accentGreen = Color(0xFF4CAF50);
 
-  static ThemeData get lightTheme {
+  /// Creates a light theme with the specified color scheme
+  static ThemeData lightTheme(AppThemeColor themeColor) {
+    final colors = themeColor;
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
+        seedColor: colors.primaryColor,
         brightness: Brightness.light,
-        primary: primaryBlue,
-        secondary: accentGreen,
+        primary: colors.primaryColor,
+        secondary: colors.accentColor,
         error: errorRed,
         surface: surfaceLight,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: primaryBlue,
+        backgroundColor: colors.primaryColor,
         foregroundColor: Colors.white,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: primaryBlue,
+        selectedItemColor: colors.primaryColor,
         unselectedItemColor: Colors.grey,
         backgroundColor: Colors.white,
         elevation: 8,
@@ -47,7 +139,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBlue,
+          backgroundColor: colors.primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -55,38 +147,57 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: accentGreen,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.accentColor,
         foregroundColor: Colors.white,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.primaryColor,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colors.primaryColor;
+          }
+          return null;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colors.primaryColor.withOpacity(0.5);
+          }
+          return null;
+        }),
       ),
     );
   }
 
-  static ThemeData get darkTheme {
+  /// Creates a dark theme with the specified color scheme
+  static ThemeData darkTheme(AppThemeColor themeColor) {
+    final colors = themeColor;
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryBlue,
+        seedColor: colors.primaryColor,
         brightness: Brightness.dark,
-        primary: primaryBlue,
-        secondary: accentGreen,
+        primary: colors.primaryColor,
+        secondary: colors.accentColor,
         error: errorRed,
         surface: surfaceDark,
       ),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        backgroundColor: surfaceDark,
+        backgroundColor: colors.primaryDarkColor,
         foregroundColor: Colors.white,
-        titleTextStyle: TextStyle(
+        titleTextStyle: const TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: primaryBlue,
+        selectedItemColor: colors.primaryColor,
         unselectedItemColor: Colors.grey,
         backgroundColor: surfaceDark,
         elevation: 8,
@@ -100,7 +211,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryBlue,
+          backgroundColor: colors.primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -108,10 +219,33 @@ class AppTheme {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: accentGreen,
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.accentColor,
         foregroundColor: Colors.white,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.primaryColor,
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colors.primaryColor;
+          }
+          return null;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return colors.primaryColor.withOpacity(0.5);
+          }
+          return null;
+        }),
       ),
     );
   }
+
+  /// Default light theme (Dark Green)
+  static ThemeData get defaultLightTheme => lightTheme(AppThemeColor.darkGreen);
+
+  /// Default dark theme (Dark Green)
+  static ThemeData get defaultDarkTheme => darkTheme(AppThemeColor.darkGreen);
 }

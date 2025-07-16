@@ -15,16 +15,16 @@ class TunnelMaxApp extends ConsumerWidget {
     return preferencesAsync.when(
       data: (preferences) => MaterialApp(
         title: 'TunnelMax VPN',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme(preferences.themeColor),
+        darkTheme: AppTheme.darkTheme(preferences.themeColor),
         themeMode: preferences.themeMode.toThemeMode,
         home: const MainNavigation(),
         debugShowCheckedModeBanner: false,
       ),
       loading: () => MaterialApp(
         title: 'TunnelMax VPN',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTheme.defaultLightTheme,
+        darkTheme: AppTheme.defaultDarkTheme,
         themeMode: ThemeMode.system,
         home: const Scaffold(
           body: Center(
@@ -35,8 +35,8 @@ class TunnelMaxApp extends ConsumerWidget {
       ),
       error: (error, stackTrace) => MaterialApp(
         title: 'TunnelMax VPN',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
+        theme: AppTheme.defaultLightTheme,
+        darkTheme: AppTheme.defaultDarkTheme,
         themeMode: ThemeMode.system,
         home: const MainNavigation(),
         debugShowCheckedModeBanner: false,

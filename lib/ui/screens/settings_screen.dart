@@ -4,8 +4,10 @@ import 'package:tunnel_max/models/vpn_configuration.dart';
 import '../../models/user_preferences.dart';
 import '../../providers/preferences_provider.dart';
 import '../../providers/configuration_provider.dart';
+import '../../ui/theme/app_theme.dart';
 import 'logs_screen.dart';
 import 'about_screen.dart';
+import 'theme_selection_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -97,10 +99,10 @@ class SettingsScreen extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.palette_outlined),
-                title: const Text('Theme'),
-                subtitle: Text('Current: ${preferences.themeMode.displayName}'),
+                title: const Text('Theme & Colors'),
+                subtitle: Text('${preferences.themeMode.displayName} • ${preferences.themeColor.displayName}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showThemeSelector(context, ref, preferences),
+                onTap: () => _navigateToThemeSelection(context),
               ),
             ],
           ),
@@ -276,36 +278,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showThemeSelector(BuildContext context, WidgetRef ref, UserPreferences preferences) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Theme'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: AppThemeMode.values.map((mode) {
-            return RadioListTile<AppThemeMode>(
-              title: Text(mode.displayName),
-              value: mode,
-              groupValue: preferences.themeMode,
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(userPreferencesProvider.notifier).updateThemeMode(value);
-                  Navigator.of(context).pop();
-                }
-              },
-            );
-          }).toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showConfigSelector(
     BuildContext context,
@@ -407,6 +380,14 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _navigateToThemeSelection(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ThemeSelectionScreen(),
       ),
     );
   }

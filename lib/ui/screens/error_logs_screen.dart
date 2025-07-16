@@ -40,7 +40,7 @@ class _ErrorLogsScreenState extends ConsumerState<ErrorLogsScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Error Logs & Diagnostics'),
-        backgroundColor: AppTheme.primaryBlue,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -529,13 +529,13 @@ class _ErrorLogsScreenState extends ConsumerState<ErrorLogsScreen>
           Icon(
             Icons.check_circle_outline,
             size: 64,
-            color: AppTheme.accentGreen,
+            color: AppTheme.successGreen,
           ),
           const SizedBox(height: 16),
           Text(
             'No Errors Found',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: AppTheme.accentGreen,
+              color: AppTheme.successGreen,
             ),
           ),
           const SizedBox(height: 8),

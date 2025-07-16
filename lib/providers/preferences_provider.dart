@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import '../models/user_preferences.dart';
 import '../services/preferences_service.dart';
+import '../ui/theme/app_theme.dart';
 
 /// Provider for preferences service
 final preferencesServiceProvider = Provider<PreferencesService>((ref) {
@@ -45,6 +46,11 @@ class UserPreferencesNotifier extends StateNotifier<AsyncValue<UserPreferences>>
   /// Updates theme mode setting
   Future<void> updateThemeMode(AppThemeMode themeMode) async {
     await _updatePreference((prefs, value) => prefs.copyWith(themeMode: value), themeMode);
+  }
+
+  /// Updates theme color setting
+  Future<void> updateThemeColor(AppThemeColor themeColor) async {
+    await _updatePreference((prefs, value) => prefs.copyWith(themeColor: value), themeColor);
   }
 
   /// Updates notification settings

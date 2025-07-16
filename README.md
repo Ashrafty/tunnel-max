@@ -209,6 +209,7 @@ makensis tunnelmax_installer.nsi
 ### Using Python Script (Recommended)
 
 1. Install Python and Pillow:
+
    ```bash
    pip install Pillow
    ```
@@ -221,6 +222,7 @@ makensis tunnelmax_installer.nsi
 ### Manual Icon Creation
 
 1. Create the following icon files in `assets/icons/`:
+
    - `app_icon.png` (1024x1024px) - Main application icon
    - `app_icon_foreground.png` (432x432px) - Android adaptive icon foreground
    - `app_icon.ico` - Windows icon file
@@ -244,6 +246,7 @@ makensis tunnelmax_installer.nsi
 #### Google Play Store
 
 1. Build signed App Bundle:
+
    ```bash
    flutter build appbundle --release
    ```
@@ -255,6 +258,7 @@ makensis tunnelmax_installer.nsi
 #### Direct APK Distribution
 
 1. Build signed APK:
+
    ```bash
    flutter build apk --release
    ```
@@ -268,6 +272,7 @@ makensis tunnelmax_installer.nsi
 #### Microsoft Store
 
 1. Package the application using MSIX:
+
    ```bash
    flutter build windows --release
    # Additional MSIX packaging steps required
@@ -313,6 +318,7 @@ flutter upgrade
 #### Android Build Issues
 
 1. **Gradle Build Failed**:
+
    - Check Android SDK installation
    - Verify NDK version compatibility
    - Clear Gradle cache: `./gradlew clean`
@@ -325,6 +331,7 @@ flutter upgrade
 #### Windows Build Issues
 
 1. **CMake Errors**:
+
    - Install Visual Studio Build Tools
    - Verify Windows SDK installation
    - Check CMake version compatibility
@@ -363,7 +370,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build-android:
@@ -372,11 +379,11 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
-          java-version: '11'
+          distribution: "zulu"
+          java-version: "11"
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.8.1'
+          flutter-version: "3.8.1"
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v3
@@ -390,7 +397,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.8.1'
+          flutter-version: "3.8.1"
       - run: flutter pub get
       - run: flutter build windows --release
       - uses: actions/upload-artifact@v3
@@ -427,6 +434,7 @@ The provided build scripts can be integrated into CI/CD pipelines:
 ### Updating Version Numbers
 
 1. Update `pubspec.yaml`:
+
    ```yaml
    version: 1.0.1+2
    ```
@@ -451,7 +459,6 @@ Maintain `CHANGELOG.md` with version history and changes.
 - **NSIS Documentation**: [https://nsis.sourceforge.io/Docs/](https://nsis.sourceforge.io/Docs/)
 
 For additional support, please refer to the project documentation or create an issue in the repository.
-
 
 # TunnelMax VPN - Deployment Guide
 
