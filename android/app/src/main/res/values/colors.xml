@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- TunnelMax VPN Brand Colors -->
+    <color name="primary_color">#2196F3</color>
+    <color name="primary_dark_color">#1976D2</color>
+    <color name="accent_color">#FF4081</color>
+    <color name="background_color">#FFFFFF</color>
+    
+    <!-- Status Colors -->
+    <color name="connected_color">#4CAF50</color>
+    <color name="connecting_color">#FF9800</color>
+    <color name="disconnected_color">#F44336</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="text_hint">#BDBDBD</color>
+</resources>
