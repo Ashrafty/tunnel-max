@@ -47,7 +47,7 @@ This guide provides comprehensive instructions for building and distributing the
 ### 1. Clone the Repository
 
 ```bash
-git clone <https://github.com/Ashrafty/tunnel-maxl>
+git clone https://github.com/Ashrafty/tunnel-max
 cd tunnel_max
 ```
 
