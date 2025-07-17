@@ -17,7 +17,8 @@ class SingboxManager(private val context: Context) {
     
     companion object {
         private const val TAG = "SingboxManager"
-        private var isLibraryLoaded = false
+        var isLibraryLoaded = false
+            private set
         
         // Load native library
         init {
@@ -36,25 +37,25 @@ class SingboxManager(private val context: Context) {
     }
     
     // Native method declarations
-    private external fun nativeInit(): Boolean
-    private external fun nativeStart(configJson: String, tunFd: Int): Boolean
-    private external fun nativeStop(): Boolean
-    private external fun nativeGetStats(): String?
-    private external fun nativeIsRunning(): Boolean
-    private external fun nativeCleanup(): Unit
-    private external fun nativeValidateConfig(configJson: String): Boolean
-    private external fun nativeGetVersion(): String?
-    private external fun nativeGetLastError(): String?
-    private external fun nativeGetDetailedStats(): String?
-    private external fun nativeResetStats(): Boolean
-    private external fun nativeSetStatsCallback(callback: Long): Boolean
-    private external fun nativeSetLogLevel(level: Int): Boolean
-    private external fun nativeGetLogs(): String?
-    private external fun nativeGetMemoryUsage(): String?
-    private external fun nativeOptimizePerformance(): Boolean
-    private external fun nativeHandleNetworkChange(networkInfo: String): Boolean
-    private external fun nativeUpdateConfiguration(configJson: String): Boolean
-    private external fun nativeGetConnectionInfo(): String?
+    external fun nativeInit(): Boolean
+    external fun nativeStart(configJson: String, tunFd: Int): Boolean
+    external fun nativeStop(): Boolean
+    external fun nativeGetStats(): String?
+    external fun nativeIsRunning(): Boolean
+    external fun nativeCleanup(): Unit
+    external fun nativeValidateConfig(configJson: String): Boolean
+    external fun nativeGetVersion(): String?
+    external fun nativeGetLastError(): String?
+    external fun nativeGetDetailedStats(): String?
+    external fun nativeResetStats(): Boolean
+    external fun nativeSetStatsCallback(callback: Long): Boolean
+    external fun nativeSetLogLevel(level: Int): Boolean
+    external fun nativeGetLogs(): String?
+    external fun nativeGetMemoryUsage(): String?
+    external fun nativeOptimizePerformance(): Boolean
+    external fun nativeHandleNetworkChange(networkInfo: String): Boolean
+    external fun nativeUpdateConfiguration(configJson: String): Boolean
+    external fun nativeGetConnectionInfo(): String?
     
     // State management
     private val isInitialized = AtomicBoolean(false)

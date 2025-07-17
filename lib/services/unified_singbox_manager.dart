@@ -1,26 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 
-import '../interfaces/singbox_manager_interface.dart';
 import '../interfaces/vpn_control_interface.dart';
 import '../models/vpn_configuration.dart';
 import '../models/vpn_status.dart';
 import '../models/network_stats.dart';
-import '../models/singbox_error.dart';
-import 'singbox_manager_factory.dart';
+import 'singbox_configuration_converter.dart';
 
 /// Unified SingBox manager that implements VPN control interface
 /// 
 /// This service provides a unified interface to the platform-specific
-/// SingBox managers and implements the VPN control interface for
-/// integration with the VPN service manager.
+/// VPN implementations through platform channels for optimal performance
+/// and native integration.
 class UnifiedSingboxManager implements VpnControlInterface {
-  final Logger _logger;
-  final SingboxManagerFactory _factory;
+  static const MethodChannel _channel = MethodChannel('com.tunnelmax.vpnclient/vpn');
   
-  SingboxManagerInterface? _platformManager;
+  final Logger _logger;
+  final SingboxConfigurationConverter _configConverter;
+  
   VpnStatus _currentStatus = VpnStatus.disconnected();
   final StreamController<VpnStatus> _statusController = StreamController<VpnStatus>.broadcast();
   
@@ -29,18 +29,18 @@ class UnifiedSingboxManager implements VpnControlInterface {
 
   UnifiedSingboxManager({
     Logger? logger,
-    SingboxManagerFactory? factory,
+    SingboxConfigurationConverter? configConverter,
   }) : _logger = logger ?? Logger(),
-       _factory = factory ?? SingboxManagerFactory();
+       _configConverter = configConverter ?? SingboxConfigurationConverter() {
+    _logger.d('UnifiedSingboxManager created');
+  }
 
   @override
   Future<bool> hasVpnPermission() async {
     try {
-      // On Android, we need VPN permission
       if (Platform.isAndroid) {
-        // This would typically check VPN permission through platform channel
-        // For now, we'll assume permission is needed and return false to trigger request
-        return false;
+        final result = await _channel.invokeMethod<bool>('hasVpnPermission');
+        return result ?? false;
       }
       
       // On other platforms, assume permission is available
@@ -54,8 +54,11 @@ class UnifiedSingboxManager implements VpnControlInterface {
   @override
   Future<bool> requestVpnPermission() async {
     try {
-      // This would typically request VPN permission through platform channel
-      // For now, we'll simulate permission being granted
+      if (Platform.isAndroid) {
+        final result = await _channel.invokeMethod<bool>('requestVpnPermission');
+        return result ?? false;
+      }
+      
       _logger.i('VPN permission requested');
       return true;
     } catch (e) {
@@ -69,22 +72,19 @@ class UnifiedSingboxManager implements VpnControlInterface {
     try {
       _logger.i('Connecting to ${config.name}');
       
-      // Initialize platform manager if needed
-      if (!_isInitialized) {
-        await _initializePlatformManager();
-      }
-      
-      if (_platformManager == null) {
-        throw Exception('Platform manager not available');
-      }
-      
       // Update status to connecting
       await _updateStatus(VpnStatus.connecting(server: config.name));
       
-      // Start the connection
-      final success = await _platformManager!.start(config);
+      // Convert configuration to sing-box format
+      final singboxConfig = _configConverter.convertToSingboxConfig(config);
+      final configJson = jsonEncode(singboxConfig);
       
-      if (success) {
+      // Start the connection through platform channel
+      final success = await _channel.invokeMethod<bool>('connect', {
+        'config': configJson,
+      });
+      
+      if (success == true) {
         await _updateStatus(VpnStatus.connected(
           server: config.name,
           connectionStartTime: DateTime.now(),
@@ -112,52 +112,21 @@ class UnifiedSingboxManager implements VpnControlInterface {
     try {
       _logger.i('Disconnecting VPN');
       
-      if (_platformManager == null) {
-        _logger.w('Platform manager not available, creating new instance');
-        _platformManager = SingboxManagerFactory.getInstance();
-      }
-      
-      // Check if already disconnected
-      if (_platformManager != null) {
-        final isRunning = await _platformManager!.isRunning();
-        if (!isRunning) {
-          _logger.i('Already disconnected');
-          await _updateStatus(VpnStatus.disconnected());
-          return true;
-        }
-      }
-      
       // Update status to disconnecting
       await _updateStatus(_currentStatus.copyWith(state: VpnConnectionState.disconnecting));
       
-      // Stop the connection
-      if (_platformManager != null) {
-        _logger.d('Calling platform manager stop()');
-        final success = await _platformManager!.stop();
-        _logger.d('Platform manager stop() returned: $success');
-        
-        if (success) {
-          await _updateStatus(VpnStatus.disconnected());
-          _stopStatusMonitoring();
-          _logger.i('Successfully disconnected');
-          return true;
-        } else {
-          // For unsupported platforms, treat as success
-          final platformName = SingboxManagerFactory.getPlatformName();
-          if (!SingboxManagerFactory.isPlatformSupported()) {
-            _logger.i('Unsupported platform ($platformName), treating as successful disconnection');
-            await _updateStatus(VpnStatus.disconnected());
-            return true;
-          }
-          
-          await _updateStatus(VpnStatus.error(error: 'Failed to disconnect'));
-          _logger.e('Failed to disconnect on supported platform: $platformName');
-          return false;
-        }
-      } else {
-        _logger.w('Platform manager unavailable, simulating successful disconnection');
+      // Stop the connection through platform channel
+      final success = await _channel.invokeMethod<bool>('disconnect');
+      
+      if (success == true) {
         await _updateStatus(VpnStatus.disconnected());
+        _stopStatusMonitoring();
+        _logger.i('Successfully disconnected');
         return true;
+      } else {
+        await _updateStatus(VpnStatus.error(error: 'Failed to disconnect'));
+        _logger.e('Failed to disconnect');
+        return false;
       }
     } catch (e, stackTrace) {
       _logger.e('Exception during disconnection: $e', error: e, stackTrace: stackTrace);
@@ -169,18 +138,37 @@ class UnifiedSingboxManager implements VpnControlInterface {
   @override
   Future<VpnStatus> getStatus() async {
     try {
-      if (_platformManager == null) {
-        return VpnStatus.disconnected();
-      }
+      final statusMap = await _channel.invokeMethod<Map<dynamic, dynamic>>('getStatus');
       
-      final isRunning = await _platformManager!.isRunning();
-      
-      if (isRunning && _currentStatus.state != VpnConnectionState.connected) {
-        // Update status if we're running but status doesn't reflect it
-        await _updateStatus(_currentStatus.copyWith(state: VpnConnectionState.connected));
-      } else if (!isRunning && _currentStatus.state == VpnConnectionState.connected) {
-        // Update status if we're not running but status shows connected
-        await _updateStatus(VpnStatus.disconnected());
+      if (statusMap != null) {
+        final status = Map<String, dynamic>.from(statusMap);
+        final state = status['state'] as String? ?? 'disconnected';
+        final isConnected = status['isConnected'] as bool? ?? false;
+        
+        VpnStatus newStatus;
+        switch (state) {
+          case 'connected':
+            newStatus = VpnStatus.connected(
+              server: status['serverAddress'] as String? ?? '',
+              connectionStartTime: DateTime.fromMillisecondsSinceEpoch(
+                status['connectionTime'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+              ),
+            );
+            break;
+          case 'connecting':
+            newStatus = VpnStatus.connecting(server: status['serverAddress'] as String? ?? '');
+            break;
+          case 'disconnecting':
+            newStatus = _currentStatus.copyWith(state: VpnConnectionState.disconnecting);
+            break;
+          case 'error':
+            newStatus = VpnStatus.error(error: status['error'] as String? ?? 'Unknown error');
+            break;
+          default:
+            newStatus = VpnStatus.disconnected();
+        }
+        
+        await _updateStatus(newStatus);
       }
       
       return _currentStatus;
@@ -193,11 +181,27 @@ class UnifiedSingboxManager implements VpnControlInterface {
   @override
   Future<NetworkStats?> getNetworkStats() async {
     try {
-      if (_platformManager == null || !_currentStatus.isConnected) {
+      if (!_currentStatus.isConnected) {
         return null;
       }
       
-      return await _platformManager!.getStatistics();
+      final statsMap = await _channel.invokeMethod<Map<dynamic, dynamic>>('getNetworkStats');
+      
+      if (statsMap != null) {
+        final stats = Map<String, dynamic>.from(statsMap);
+        return NetworkStats(
+          bytesReceived: stats['bytesReceived'] as int? ?? 0,
+          bytesSent: stats['bytesSent'] as int? ?? 0,
+          packetsReceived: stats['packetsReceived'] as int? ?? 0,
+          packetsSent: stats['packetsSent'] as int? ?? 0,
+          connectionDuration: Duration(milliseconds: stats['connectionDuration'] as int? ?? 0),
+          downloadSpeed: stats['downloadSpeed'] as double? ?? 0.0,
+          uploadSpeed: stats['uploadSpeed'] as double? ?? 0.0,
+          lastUpdated: DateTime.now(),
+        );
+      }
+      
+      return null;
     } catch (e) {
       _logger.e('Error getting network stats: $e');
       return null;
@@ -214,11 +218,9 @@ class UnifiedSingboxManager implements VpnControlInterface {
     try {
       _logger.i('Initializing platform manager');
       
-      _platformManager = SingboxManagerFactory.getInstance();
-      
-      if (_platformManager != null) {
-        final initialized = await _platformManager!.initialize();
-        if (initialized) {
+      if (Platform.isAndroid) {
+        final initialized = await _channel.invokeMethod<bool>('initSingbox');
+        if (initialized == true) {
           _isInitialized = true;
           _logger.i('Platform manager initialized successfully');
         } else {
@@ -226,8 +228,8 @@ class UnifiedSingboxManager implements VpnControlInterface {
           throw Exception('Platform manager initialization failed');
         }
       } else {
-        _logger.e('Failed to create platform manager');
-        throw Exception('Platform manager creation failed');
+        _isInitialized = true;
+        _logger.i('Platform manager initialized (non-Android platform)');
       }
     } catch (e) {
       _logger.e('Error initializing platform manager: $e');
@@ -275,6 +277,5 @@ class UnifiedSingboxManager implements VpnControlInterface {
   void dispose() {
     _stopStatusMonitoring();
     _statusController.close();
-    _platformManager?.cleanup();
   }
 }

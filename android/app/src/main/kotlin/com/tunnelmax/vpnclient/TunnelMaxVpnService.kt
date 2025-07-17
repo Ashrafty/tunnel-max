@@ -46,7 +46,7 @@ class TunnelMaxVpnService : VpnService() {
         
         // Initialize SingboxManager
         if (SingboxManager.isLibraryLoaded) {
-            singboxManager = SingboxManager()
+            singboxManager = SingboxManager(this)
         } else {
             Log.e(TAG, "SingBox native libraries not loaded")
         }
@@ -118,7 +118,7 @@ class TunnelMaxVpnService : VpnService() {
             // Start SingBox with TUN file descriptor
             singboxManager?.let { manager ->
                 val tunFd = vpnInterface!!.fd
-                if (!manager.nativeStart(configPath)) {
+                if (!manager.nativeStart(configPath, tunFd)) {
                     Log.e(TAG, "Failed to start SingBox")
                     stopVpn()
                     return
