@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/vpn_configuration.dart';
+import '../../providers/vpn_service_provider.dart';
 
-class ServerCardWidget extends StatelessWidget {
+class ServerCardWidget extends ConsumerWidget {
   final VpnConfiguration configuration;
   final VoidCallback? onTap;
   final VoidCallback? onConnect;
@@ -18,7 +20,7 @@ class ServerCardWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       elevation: 2,
       child: InkWell(
@@ -53,7 +55,7 @@ class ServerCardWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _buildStatusIndicator(),
+                  _buildStatusIndicator(ref),
                   PopupMenuButton<String>(
                     onSelected: _handleMenuAction,
                     itemBuilder: (context) => [
@@ -191,16 +193,59 @@ class ServerCardWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIndicator() {
-    // In a real implementation, this would show actual connection status
-    return Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: Colors.grey[400],
-        shape: BoxShape.circle,
-      ),
-    );
+  Widget _buildStatusIndicator(WidgetRef ref) {
+    final vpnActions = ref.watch(vpnServiceActionsProvider);
+    final isConnected = ref.watch(isVpnConnectedProvider);
+    final isConnecting = ref.watch(isVpnConnectingProvider);
+    
+    // Check if this server is the currently connected/connecting one
+    final currentConfig = vpnActions.currentConfiguration;
+    final isCurrentServer = currentConfig?.id == configuration.id;
+    
+    Color statusColor;
+    Widget statusWidget;
+    
+    if (isCurrentServer && isConnected) {
+      // Connected to this server
+      statusColor = Colors.green;
+      statusWidget = Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(
+          color: statusColor,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.check,
+          size: 8,
+          color: Colors.white,
+        ),
+      );
+    } else if (isCurrentServer && isConnecting) {
+      // Connecting to this server
+      statusColor = Colors.orange;
+      statusWidget = SizedBox(
+        width: 12,
+        height: 12,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+        ),
+      );
+    } else {
+      // Not connected to this server
+      statusColor = Colors.grey[400]!;
+      statusWidget = Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: statusColor,
+          shape: BoxShape.circle,
+        ),
+      );
+    }
+    
+    return statusWidget;
   }
 
   Widget _buildInfoChip({

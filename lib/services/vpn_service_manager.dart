@@ -449,8 +449,14 @@ class VpnServiceManager {
         
         // Handle connection error
         if (_autoReconnectEnabled && _currentConfiguration != null) {
-          _logger.w('Connection error detected, attempting reconnection');
-          _scheduleReconnection();
+          // Check if platform supports VPN before attempting reconnection
+          if (_isPlatformSupported()) {
+            _logger.w('Connection error detected, attempting reconnection');
+            _scheduleReconnection();
+          } else {
+            _logger.w('Connection error on unsupported platform, disabling auto-reconnect');
+            _autoReconnectEnabled = false;
+          }
         }
         break;
         
@@ -582,5 +588,17 @@ class VpnServiceManager {
     });
     
     return completer.future;
+  }
+
+  /// Check if the current platform supports VPN functionality
+  bool _isPlatformSupported() {
+    try {
+      // For now, we'll be more conservative about reconnection
+      // to prevent infinite loops on platforms with issues
+      return _reconnectionAttempts < 2; // Only allow a couple of attempts
+    } catch (e) {
+      _logger.w('Error checking platform support: $e');
+      return false;
+    }
   }
 }

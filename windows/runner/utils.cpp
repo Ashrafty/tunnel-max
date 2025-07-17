@@ -4,6 +4,7 @@
 #include <io.h>
 #include <stdio.h>
 #include <windows.h>
+#include <filesystem>
 
 #include <iostream>
 
@@ -62,4 +63,139 @@ std::string Utf8FromUtf16(const wchar_t* utf16_string) {
     return std::string();
   }
   return utf8_string;
+}
+// Native library loading utilities implementation
+
+bool ValidateExecutablePath(const std::string& path) {
+  try {
+    if (path.empty()) {
+      return false;
+    }
+    
+    std::filesystem::path exe_path(path);
+    
+    // Check if file exists
+    if (!std::filesystem::exists(exe_path)) {
+      return false;
+    }
+    
+    // Check if it's a regular file
+    if (!std::filesystem::is_regular_file(exe_path)) {
+      return false;
+    }
+    
+    // Check file size (should be at least 1MB for sing-box)
+    std::error_code ec;
+    auto file_size = std::filesystem::file_size(exe_path, ec);
+    if (ec || file_size < 1000000) {
+      return false;
+    }
+    
+    // Check file extension
+    if (exe_path.extension() != ".exe") {
+      return false;
+    }
+    
+    return true;
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
+bool CheckSystemLibraryAvailability() {
+  try {
+    // Check for required Windows system libraries
+    std::vector<std::string> required_libs = {
+      "kernel32.dll",
+      "ws2_32.dll",
+      "iphlpapi.dll",
+      "wininet.dll",
+      "shell32.dll",
+      "advapi32.dll",
+      "user32.dll"
+    };
+    
+    for (const auto& lib : required_libs) {
+      HMODULE handle = LoadLibraryA(lib.c_str());
+      if (handle == nullptr) {
+        std::cerr << "Failed to load required system library: " << lib << std::endl;
+        return false;
+      }
+      FreeLibrary(handle);
+    }
+    
+    return true;
+  } catch (const std::exception& e) {
+    std::cerr << "Exception checking system library availability: " << e.what() << std::endl;
+    return false;
+  }
+}
+
+std::string GetApplicationDirectory() {
+  try {
+    char exe_path[MAX_PATH];
+    if (!GetModuleFileNameA(nullptr, exe_path, MAX_PATH)) {
+      return "";
+    }
+    
+    std::filesystem::path app_path(exe_path);
+    return app_path.parent_path().string();
+  } catch (const std::exception&) {
+    return "";
+  }
+}
+
+std::vector<std::string> GetLibrarySearchPaths() {
+  std::vector<std::string> search_paths;
+  
+  try {
+    std::string app_dir = GetApplicationDirectory();
+    if (app_dir.empty()) {
+      return search_paths;
+    }
+    
+    std::filesystem::path base_path(app_dir);
+    
+    // Add various potential library locations
+    search_paths.push_back(app_dir);
+    search_paths.push_back((base_path / "bin").string());
+    search_paths.push_back((base_path / "lib").string());
+    search_paths.push_back((base_path / "native").string());
+    search_paths.push_back((base_path / "sing-box").string());
+    
+    // Add system paths
+    char system_path[MAX_PATH];
+    if (GetSystemDirectoryA(system_path, MAX_PATH)) {
+      search_paths.push_back(std::string(system_path));
+    }
+    
+    // Add Windows directory
+    char windows_path[MAX_PATH];
+    if (GetWindowsDirectoryA(windows_path, MAX_PATH)) {
+      search_paths.push_back(std::string(windows_path));
+    }
+    
+    // Add PATH environment variable directories
+    char path_env[32768]; // Large buffer for PATH
+    DWORD path_len = GetEnvironmentVariableA("PATH", path_env, sizeof(path_env));
+    if (path_len > 0 && path_len < sizeof(path_env)) {
+      std::string path_str(path_env);
+      size_t pos = 0;
+      while ((pos = path_str.find(';')) != std::string::npos) {
+        std::string path_entry = path_str.substr(0, pos);
+        if (!path_entry.empty()) {
+          search_paths.push_back(path_entry);
+        }
+        path_str.erase(0, pos + 1);
+      }
+      if (!path_str.empty()) {
+        search_paths.push_back(path_str);
+      }
+    }
+    
+  } catch (const std::exception& e) {
+    std::cerr << "Exception getting library search paths: " << e.what() << std::endl;
+  }
+  
+  return search_paths;
 }

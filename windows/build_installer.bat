@@ -15,6 +15,26 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
+REM Validate sing-box executable before building
+echo Validating sing-box executable...
+if not exist "sing-box\sing-box.exe" (
+    echo Error: sing-box executable not found at: sing-box\sing-box.exe
+    echo Run 'scripts\setup_singbox_binaries.ps1' to download sing-box binary
+    echo.
+    pause
+    exit /b 1
+)
+
+REM Check if sing-box executable is reasonable size (basic validation)
+for %%A in ("sing-box\sing-box.exe") do (
+    if %%~zA LSS 10000000 (
+        echo Warning: sing-box executable seems small (%%~zA bytes^)
+        echo This might indicate a corrupted or placeholder file
+    ) else (
+        echo sing-box executable validated (%%~zA bytes^)
+    )
+)
+
 REM Build Flutter app for Windows release
 echo Building Flutter app for Windows...
 flutter build windows --release

@@ -62,6 +62,9 @@ Section "TunnelMax VPN (Required)" SecMain
     ; Install main application files
     File /r "build\windows\x64\runner\Release\*"
     
+    ; Install sing-box executable
+    File "..\sing-box\sing-box.exe"
+    
     ; Create shortcuts
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
     CreateShortcut "$SMPROGRAMS\${APP_NAME}\${APP_NAME}.lnk" "$INSTDIR\${APP_EXECUTABLE}"

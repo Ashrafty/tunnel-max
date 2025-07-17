@@ -1,11 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/vpn_status.dart';
 import '../../models/network_stats.dart';
 import '../../models/vpn_configuration.dart';
-import '../../providers/vpn_provider.dart';
+import '../../providers/vpn_service_provider.dart';
 import '../../providers/configuration_provider.dart';
 import '../theme/app_theme.dart';
 
@@ -16,7 +17,8 @@ class ConnectionStatusWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vpnStatusAsync = ref.watch(vpnStatusProvider);
     final networkStatsAsync = ref.watch(networkStatsProvider);
-    final connectionState = ref.watch(vpnConnectionProvider);
+    final isConnected = ref.watch(isVpnConnectedProvider);
+    final isConnecting = ref.watch(isVpnConnectingProvider);
     final selectedConfig = ref.watch(selectedConfigurationProvider);
 
     return Card(
@@ -25,7 +27,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
         child: Column(
           children: [
             // Connection status indicator
-            _buildStatusIndicator(context, vpnStatusAsync, connectionState),
+            _buildStatusIndicator(context, vpnStatusAsync, isConnecting, isConnecting),
             const SizedBox(height: 16),
             
             // Status text and server info
@@ -37,13 +39,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
             const SizedBox(height: 20),
             
             // Connect/Disconnect button
-            _buildActionButton(context, ref, vpnStatusAsync, connectionState, selectedConfig),
-            
-            // Error message if any
-            if (connectionState.error != null) ...[
-              const SizedBox(height: 12),
-              _buildErrorMessage(context, connectionState.error!),
-            ],
+            _buildActionButton(context, ref, vpnStatusAsync, isConnected, isConnecting, selectedConfig),
           ],
         ),
       ),
@@ -53,13 +49,14 @@ class ConnectionStatusWidget extends ConsumerWidget {
   Widget _buildStatusIndicator(
     BuildContext context,
     AsyncValue<VpnStatus> vpnStatusAsync,
-    VpnConnectionUIState connectionState,
+    bool isConnecting,
+    bool isDisconnecting,
   ) {
     return vpnStatusAsync.when(
       data: (status) => _StatusIndicator(
         status: status,
-        isConnecting: connectionState.isConnecting,
-        isDisconnecting: connectionState.isDisconnecting,
+        isConnecting: isConnecting,
+        isDisconnecting: isDisconnecting,
       ),
       loading: () => _StatusIndicator(
         status: VpnStatus.disconnected(),
@@ -218,12 +215,13 @@ class ConnectionStatusWidget extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AsyncValue<VpnStatus> vpnStatusAsync,
-    VpnConnectionUIState connectionState,
+    bool isConnected,
+    bool isConnecting,
     VpnConfiguration? selectedConfig,
   ) {
     return vpnStatusAsync.when(
       data: (status) {
-        final isLoading = connectionState.isConnecting || connectionState.isDisconnecting;
+        final isLoading = isConnecting || status.state == VpnConnectionState.disconnecting;
         final canConnect = !status.hasActiveConnection && selectedConfig != null && !isLoading;
         final canDisconnect = status.hasActiveConnection && !isLoading;
 
@@ -231,10 +229,10 @@ class ConnectionStatusWidget extends ConsumerWidget {
         VoidCallback? onPressed;
         Color? backgroundColor;
 
-        if (connectionState.isConnecting) {
+        if (isConnecting) {
           buttonText = 'Connecting...';
           backgroundColor = AppTheme.warningOrange;
-        } else if (connectionState.isDisconnecting) {
+        } else if (status.state == VpnConnectionState.disconnecting) {
           buttonText = 'Disconnecting...';
           backgroundColor = AppTheme.warningOrange;
         } else if (status.isConnected) {
@@ -244,7 +242,7 @@ class ConnectionStatusWidget extends ConsumerWidget {
         } else {
           buttonText = 'Connect';
           backgroundColor = Theme.of(context).colorScheme.secondary;
-          onPressed = canConnect ? () => _connect(ref, selectedConfig) : null;
+          onPressed = canConnect ? () => _connect(ref, selectedConfig!) : null;
         }
 
         return SizedBox(
@@ -325,12 +323,22 @@ class ConnectionStatusWidget extends ConsumerWidget {
     );
   }
 
-  void _connect(WidgetRef ref, VpnConfiguration config) {
-    ref.read(vpnConnectionProvider.notifier).connect(config);
+  Future<void> _connect(WidgetRef ref, VpnConfiguration config) async {
+    try {
+      final vpnActions = ref.read(vpnServiceActionsProvider);
+      await vpnActions.connect(config);
+    } catch (e) {
+      // Error handling is done in the VPN service
+    }
   }
 
-  void _disconnect(WidgetRef ref) {
-    ref.read(vpnConnectionProvider.notifier).disconnect();
+  Future<void> _disconnect(WidgetRef ref) async {
+    try {
+      final vpnActions = ref.read(vpnServiceActionsProvider);
+      await vpnActions.disconnect();
+    } catch (e) {
+      // Error handling is done in the VPN service
+    }
   }
 }
 

@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../models/vpn_configuration.dart';
 import '../interfaces/platform_channels.dart';
 import 'secure_storage_service.dart';
+import 'singbox_configuration_converter.dart';
 
 /// Exception thrown when configuration validation fails
 class ConfigurationValidationException implements Exception {
@@ -62,6 +63,7 @@ class ConfigurationManager {
   final Logger _logger;
   final Uuid _uuid;
   final SecureStorageService _secureStorageService;
+  final SingboxConfigurationConverter _singboxConverter;
 
   ConfigurationManager({
     FlutterSecureStorage? secureStorage,
@@ -69,6 +71,7 @@ class ConfigurationManager {
     Logger? logger,
     Uuid? uuid,
     SecureStorageService? secureStorageService,
+    SingboxConfigurationConverter? singboxConverter,
   })  : _secureStorage = secureStorage ?? 
             const FlutterSecureStorage(
               aOptions: AndroidOptions(
@@ -84,7 +87,8 @@ class ConfigurationManager {
             const MethodChannel(PlatformChannels.configuration),
         _logger = logger ?? Logger(),
         _uuid = uuid ?? const Uuid(),
-        _secureStorageService = secureStorageService ?? SecureStorageService();
+        _secureStorageService = secureStorageService ?? SecureStorageService(),
+        _singboxConverter = singboxConverter ?? SingboxConfigurationConverter();
 
   /// Validates a VPN configuration for correctness and protocol compliance
   /// 
@@ -643,6 +647,217 @@ class ConfigurationManager {
     }
   }
 
+  /// Sing-box Configuration Integration Methods
+
+  /// Converts a VPN configuration to sing-box format
+  /// 
+  /// Uses the integrated SingboxConfigurationConverter to transform
+  /// the application's VPN configuration into a sing-box compatible format.
+  /// 
+  /// Throws [ConfigurationConversionException] if conversion fails.
+  Map<String, dynamic> convertToSingboxFormat(VpnConfiguration config) {
+    try {
+      _logger.d('Converting configuration to sing-box format: ${config.name}');
+      
+      // Validate protocol support before conversion
+      if (!isSingboxProtocolSupported(config.protocol)) {
+        throw ConfigurationValidationException(
+          'Protocol ${config.protocol.name} is not supported by sing-box',
+          field: 'protocol',
+          value: config.protocol.name,
+        );
+      }
+      
+      final singboxConfig = _singboxConverter.convertToSingboxConfig(config);
+      
+      _logger.d('Configuration converted to sing-box format successfully: ${config.name}');
+      return singboxConfig;
+    } catch (e) {
+      _logger.e('Failed to convert configuration to sing-box format: $e');
+      rethrow;
+    }
+  }
+
+  /// Validates a sing-box configuration for correctness
+  /// 
+  /// Uses the integrated SingboxConfigurationConverter to validate
+  /// the structure and content of a sing-box configuration.
+  /// 
+  /// Returns true if valid, throws [ConfigurationConversionException] if invalid.
+  bool validateSingboxConfiguration(Map<String, dynamic> singboxConfig) {
+    try {
+      _logger.d('Validating sing-box configuration');
+      
+      final isValid = _singboxConverter.validateSingboxConfig(singboxConfig);
+      
+      _logger.d('Sing-box configuration validation successful');
+      return isValid;
+    } catch (e) {
+      _logger.e('Sing-box configuration validation failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Gets list of protocols supported for sing-box conversion
+  /// 
+  /// Returns the list of VPN protocols that can be converted to sing-box format.
+  List<VpnProtocol> getSupportedSingboxProtocols() {
+    return _singboxConverter.getSupportedProtocols();
+  }
+
+  /// Checks if a protocol is supported for sing-box conversion
+  /// 
+  /// Returns true if the protocol can be converted to sing-box format.
+  bool isSingboxProtocolSupported(VpnProtocol protocol) {
+    return _singboxConverter.isProtocolSupported(protocol);
+  }
+
+  /// Validates protocol-specific configuration for sing-box compatibility
+  /// 
+  /// Performs comprehensive validation of protocol-specific fields
+  /// to ensure they meet sing-box requirements.
+  bool validateProtocolForSingbox(VpnConfiguration config) {
+    try {
+      _logger.d('Validating protocol configuration for sing-box: ${config.protocol.name}');
+      
+      // Check if protocol is supported
+      if (!isSingboxProtocolSupported(config.protocol)) {
+        throw ConfigurationValidationException(
+          'Protocol ${config.protocol.name} is not supported by sing-box',
+          field: 'protocol',
+          value: config.protocol.name,
+        );
+      }
+
+      final protocolConfig = config.protocolSpecificConfig;
+
+      // Validate protocol-specific requirements
+      switch (config.protocol) {
+        case VpnProtocol.vless:
+          _validateVlessForSingbox(protocolConfig);
+          break;
+        case VpnProtocol.vmess:
+          _validateVmessForSingbox(protocolConfig);
+          break;
+        case VpnProtocol.trojan:
+          _validateTrojanForSingbox(protocolConfig);
+          break;
+        case VpnProtocol.shadowsocks:
+          _validateShadowsocksForSingbox(protocolConfig);
+          break;
+        default:
+          throw ConfigurationValidationException(
+            'Unsupported protocol for sing-box validation: ${config.protocol.name}',
+            field: 'protocol',
+            value: config.protocol.name,
+          );
+      }
+
+      _logger.d('Protocol validation for sing-box successful: ${config.protocol.name}');
+      return true;
+    } catch (e) {
+      _logger.e('Protocol validation for sing-box failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Exports configurations in sing-box format
+  /// 
+  /// Converts and exports VPN configurations as sing-box compatible JSON.
+  /// Can export specific configurations or all configurations.
+  /// 
+  /// Only exports configurations that are supported by sing-box.
+  Future<String> exportToSingboxFormat({
+    List<String>? configurationIds,
+  }) async {
+    try {
+      _logger.d('Exporting configurations to sing-box format');
+
+      List<VpnConfiguration> configurationsToExport;
+      
+      if (configurationIds != null && configurationIds.isNotEmpty) {
+        configurationsToExport = [];
+        for (final id in configurationIds) {
+          final config = await loadConfiguration(id);
+          if (config != null) {
+            configurationsToExport.add(config);
+          }
+        }
+      } else {
+        configurationsToExport = await loadConfigurations();
+      }
+
+      // Filter configurations that are supported by sing-box
+      final supportedConfigs = configurationsToExport
+          .where((config) => isSingboxProtocolSupported(config.protocol))
+          .toList();
+
+      if (supportedConfigs.isEmpty) {
+        throw ConfigurationValidationException(
+          'No configurations found that are supported by sing-box',
+        );
+      }
+
+      final exportData = <Map<String, dynamic>>[];
+      for (final config in supportedConfigs) {
+        try {
+          final singboxConfig = convertToSingboxFormat(config);
+          exportData.add(singboxConfig);
+        } catch (e) {
+          _logger.w('Failed to convert configuration ${config.name} to sing-box format: $e');
+          // Continue with other configurations
+        }
+      }
+
+      final jsonString = jsonEncode(exportData);
+      _logger.i('Exported ${exportData.length} configurations in sing-box format');
+      return jsonString;
+    } catch (e) {
+      _logger.e('Failed to export configurations in sing-box format: $e');
+      throw SecureStorageException(
+        'Failed to export sing-box configurations: $e',
+        operation: 'export_singbox',
+      );
+    }
+  }
+
+  /// Enhanced validation that includes sing-box compatibility check
+  /// 
+  /// Performs standard validation plus checks if the configuration
+  /// can be successfully converted to sing-box format.
+  Future<bool> validateConfigurationWithSingboxSupport(VpnConfiguration config) async {
+    try {
+      _logger.d('Validating configuration with sing-box support: ${config.name}');
+
+      // Perform standard validation first
+      await validateConfiguration(config);
+
+      // Check if protocol is supported by sing-box
+      if (!isSingboxProtocolSupported(config.protocol)) {
+        throw ConfigurationValidationException(
+          'Protocol ${config.protocol.name} is not supported by sing-box',
+          field: 'protocol',
+          value: config.protocol.name,
+        );
+      }
+
+      // Try to convert to sing-box format to ensure compatibility
+      try {
+        convertToSingboxFormat(config);
+      } catch (e) {
+        throw ConfigurationValidationException(
+          'Configuration cannot be converted to sing-box format: $e',
+        );
+      }
+
+      _logger.d('Configuration validation with sing-box support successful: ${config.name}');
+      return true;
+    } catch (e) {
+      _logger.e('Configuration validation with sing-box support failed: $e');
+      rethrow;
+    }
+  }
+
   // Private helper methods
 
   void _validateBasicFields(VpnConfiguration config) {
@@ -680,6 +895,7 @@ class ConfigurationManager {
   }
 
   Future<void> _validateProtocolSpecific(VpnConfiguration config) async {
+    // Perform basic protocol-specific validation
     switch (config.protocol) {
       case VpnProtocol.shadowsocks:
         _validateShadowsocksConfig(config);
@@ -703,6 +919,18 @@ class ConfigurationManager {
       case VpnProtocol.wireguard:
         _validateWireguardConfig(config);
         break;
+    }
+
+    // Additional validation for sing-box supported protocols
+    if (isSingboxProtocolSupported(config.protocol)) {
+      try {
+        validateProtocolForSingbox(config);
+        _logger.d('Sing-box protocol validation passed for ${config.protocol.name}');
+      } catch (e) {
+        _logger.w('Sing-box protocol validation failed for ${config.protocol.name}: $e');
+        // Don't fail the entire validation, just log the warning
+        // This allows configurations to work with other backends if sing-box validation fails
+      }
     }
   }
 
@@ -817,10 +1045,16 @@ class ConfigurationManager {
         config.toJson(),
       );
       
-      final response = await _configChannel.invokeMethod<Map<String, dynamic>>(
+      final rawResponse = await _configChannel.invokeMethod(
         ConfigurationMethods.validateConfiguration,
         message,
       );
+
+      // Safely convert the response to Map<String, dynamic>
+      Map<String, dynamic>? response;
+      if (rawResponse is Map) {
+        response = Map<String, dynamic>.from(rawResponse);
+      }
 
       if (response != null && !PlatformResponses.isSuccessResponse(response)) {
         throw ConfigurationValidationException(
@@ -830,6 +1064,10 @@ class ConfigurationManager {
     } on PlatformException catch (e) {
       throw ConfigurationValidationException(
         'Platform validation failed: ${e.message}',
+      );
+    } catch (e) {
+      throw ConfigurationValidationException(
+        'Configuration validation error: ${e.toString()}',
       );
     }
   }
@@ -897,71 +1135,452 @@ class ConfigurationManager {
   }
 
   Map<String, dynamic> _convertSingboxFormat(Map<String, dynamic> singboxConfig) {
-    // Basic conversion from singbox format to our format
-    // This is a simplified conversion - in a real implementation,
-    // you would need more comprehensive parsing of singbox configurations
-    
-    final outbounds = singboxConfig['outbounds'] as List<dynamic>?;
-    if (outbounds == null || outbounds.isEmpty) {
-      throw ConfigurationValidationException(
-        'No outbounds found in singbox configuration',
-      );
-    }
-
-    final firstOutbound = outbounds.first as Map<String, dynamic>;
-    final type = firstOutbound['type'] as String?;
-    final server = firstOutbound['server'] as String?;
-    final serverPort = firstOutbound['server_port'] as int?;
-
-    if (type == null || server == null || serverPort == null) {
-      throw ConfigurationValidationException(
-        'Invalid singbox outbound configuration',
-      );
-    }
-
-    // Map singbox protocol types to our enum values
-    VpnProtocol protocol;
-    switch (type.toLowerCase()) {
-      case 'shadowsocks':
-        protocol = VpnProtocol.shadowsocks;
-        break;
-      case 'vmess':
-        protocol = VpnProtocol.vmess;
-        break;
-      case 'vless':
-        protocol = VpnProtocol.vless;
-        break;
-      case 'trojan':
-        protocol = VpnProtocol.trojan;
-        break;
-      case 'hysteria':
-        protocol = VpnProtocol.hysteria;
-        break;
-      case 'hysteria2':
-        protocol = VpnProtocol.hysteria2;
-        break;
-      case 'tuic':
-        protocol = VpnProtocol.tuic;
-        break;
-      case 'wireguard':
-        protocol = VpnProtocol.wireguard;
-        break;
-      default:
+    try {
+      _logger.d('Converting sing-box format to application configuration');
+      
+      // First validate the sing-box configuration structure
+      validateSingboxConfiguration(singboxConfig);
+      
+      final outbounds = singboxConfig['outbounds'] as List<dynamic>;
+      
+      // Find the first proxy outbound (skip direct/block outbounds)
+      Map<String, dynamic>? proxyOutbound;
+      for (final outbound in outbounds) {
+        if (outbound is Map<String, dynamic>) {
+          final type = outbound['type'] as String?;
+          if (type != null && type != 'direct' && type != 'block') {
+            proxyOutbound = outbound;
+            break;
+          }
+        }
+      }
+      
+      if (proxyOutbound == null) {
         throw ConfigurationValidationException(
-          'Unsupported protocol type: $type',
+          'No proxy outbound found in sing-box configuration',
         );
+      }
+
+      final type = proxyOutbound['type']?.toString() ?? '';
+      final server = proxyOutbound['server']?.toString() ?? '';
+      final serverPort = int.tryParse(proxyOutbound['server_port']?.toString() ?? '0') ?? 0;
+
+      // Map sing-box protocol types to our enum values
+      VpnProtocol protocol;
+      switch (type.toLowerCase()) {
+        case 'shadowsocks':
+          protocol = VpnProtocol.shadowsocks;
+          break;
+        case 'vmess':
+          protocol = VpnProtocol.vmess;
+          break;
+        case 'vless':
+          protocol = VpnProtocol.vless;
+          break;
+        case 'trojan':
+          protocol = VpnProtocol.trojan;
+          break;
+        case 'hysteria':
+          protocol = VpnProtocol.hysteria;
+          break;
+        case 'hysteria2':
+          protocol = VpnProtocol.hysteria2;
+          break;
+        case 'tuic':
+          protocol = VpnProtocol.tuic;
+          break;
+        case 'wireguard':
+          protocol = VpnProtocol.wireguard;
+          break;
+        default:
+          throw ConfigurationValidationException(
+            'Unsupported protocol type: $type',
+          );
+      }
+
+      // Check if the imported protocol is supported by sing-box
+      if (!isSingboxProtocolSupported(protocol)) {
+        throw ConfigurationValidationException(
+          'Protocol $type is not supported by sing-box converter',
+          field: 'protocol',
+          value: type,
+        );
+      }
+
+      // Extract protocol-specific configuration
+      final protocolSpecificConfig = <String, dynamic>{};
+      
+      // Copy relevant fields based on protocol
+      switch (protocol) {
+        case VpnProtocol.vless:
+          if (proxyOutbound.containsKey('uuid')) {
+            protocolSpecificConfig['uuid'] = proxyOutbound['uuid'];
+          }
+          if (proxyOutbound.containsKey('flow')) {
+            protocolSpecificConfig['flow'] = proxyOutbound['flow'];
+          }
+          break;
+        case VpnProtocol.vmess:
+          if (proxyOutbound.containsKey('uuid')) {
+            protocolSpecificConfig['uuid'] = proxyOutbound['uuid'];
+          }
+          if (proxyOutbound.containsKey('alter_id')) {
+            protocolSpecificConfig['alterId'] = proxyOutbound['alter_id'];
+          }
+          if (proxyOutbound.containsKey('security')) {
+            protocolSpecificConfig['security'] = proxyOutbound['security'];
+          }
+          break;
+        case VpnProtocol.trojan:
+          if (proxyOutbound.containsKey('password')) {
+            protocolSpecificConfig['password'] = proxyOutbound['password'];
+          }
+          break;
+        case VpnProtocol.shadowsocks:
+          if (proxyOutbound.containsKey('method')) {
+            protocolSpecificConfig['method'] = proxyOutbound['method'];
+          }
+          if (proxyOutbound.containsKey('password')) {
+            protocolSpecificConfig['password'] = proxyOutbound['password'];
+          }
+          if (proxyOutbound.containsKey('plugin')) {
+            protocolSpecificConfig['plugin'] = proxyOutbound['plugin'];
+          }
+          if (proxyOutbound.containsKey('plugin_opts')) {
+            protocolSpecificConfig['pluginOpts'] = proxyOutbound['plugin_opts'];
+          }
+          break;
+        default:
+          // For other protocols, copy all fields
+          protocolSpecificConfig.addAll(proxyOutbound);
+          break;
+      }
+
+      // Extract transport configuration
+      if (proxyOutbound.containsKey('transport')) {
+        final transport = proxyOutbound['transport'] as Map<String, dynamic>;
+        final transportType = transport['type'] as String?;
+        
+        if (transportType != null) {
+          protocolSpecificConfig['transport'] = transportType;
+          
+          switch (transportType) {
+            case 'ws':
+              if (transport.containsKey('path')) {
+                protocolSpecificConfig['path'] = transport['path'];
+              }
+              if (transport.containsKey('headers')) {
+                final headers = transport['headers'] as Map<String, dynamic>?;
+                if (headers != null && headers.containsKey('Host')) {
+                  protocolSpecificConfig['host'] = headers['Host'];
+                }
+              }
+              break;
+            case 'grpc':
+              if (transport.containsKey('service_name')) {
+                protocolSpecificConfig['serviceName'] = transport['service_name'];
+              }
+              break;
+            case 'http':
+              if (transport.containsKey('path')) {
+                protocolSpecificConfig['path'] = transport['path'];
+              }
+              if (transport.containsKey('host')) {
+                final hosts = transport['host'] as List<dynamic>?;
+                if (hosts != null && hosts.isNotEmpty) {
+                  protocolSpecificConfig['host'] = hosts.first;
+                }
+              }
+              break;
+          }
+        }
+      }
+
+      // Extract TLS configuration
+      if (proxyOutbound.containsKey('tls')) {
+        final tls = proxyOutbound['tls'] as Map<String, dynamic>;
+        if (tls['enabled'] == true) {
+          protocolSpecificConfig['tls'] = true;
+          if (tls.containsKey('server_name')) {
+            protocolSpecificConfig['serverName'] = tls['server_name'];
+          }
+          if (tls.containsKey('insecure')) {
+            protocolSpecificConfig['allowInsecure'] = tls['insecure'];
+          }
+          if (tls.containsKey('alpn')) {
+            protocolSpecificConfig['alpn'] = tls['alpn'];
+          }
+        }
+      }
+
+      final result = {
+        'id': _uuid.v4(),
+        'name': proxyOutbound['tag'] ?? 'Imported Sing-box Configuration',
+        'serverAddress': server,
+        'serverPort': serverPort,
+        'protocol': protocol.name,
+        'authMethod': _determineAuthMethod(protocol, protocolSpecificConfig).name,
+        'protocolSpecificConfig': protocolSpecificConfig,
+        'autoConnect': false,
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+
+      _logger.d('Sing-box format converted to application configuration successfully');
+      return result;
+    } catch (e) {
+      _logger.e('Failed to convert sing-box format: $e');
+      rethrow;
+    }
+  }
+
+  /// Determines the appropriate authentication method based on protocol and config
+  AuthenticationMethod _determineAuthMethod(VpnProtocol protocol, Map<String, dynamic> config) {
+    switch (protocol) {
+      case VpnProtocol.shadowsocks:
+      case VpnProtocol.trojan:
+        return AuthenticationMethod.password;
+      case VpnProtocol.vless:
+      case VpnProtocol.vmess:
+        return AuthenticationMethod.token;
+      case VpnProtocol.wireguard:
+        return AuthenticationMethod.certificate;
+      default:
+        return AuthenticationMethod.none;
+    }
+  }
+
+  // Protocol-specific validation methods for sing-box compatibility
+
+  void _validateVlessForSingbox(Map<String, dynamic> protocolConfig) {
+    if (!protocolConfig.containsKey('uuid') || 
+        (protocolConfig['uuid'] as String).isEmpty) {
+      throw ConfigurationValidationException(
+        'VLESS UUID is required for sing-box compatibility',
+        field: 'uuid',
+      );
     }
 
-    return {
-      'id': _uuid.v4(),
-      'name': firstOutbound['tag'] ?? 'Imported Configuration',
-      'serverAddress': server,
-      'serverPort': serverPort,
-      'protocol': protocol.name,
-      'authMethod': AuthenticationMethod.password.name,
-      'protocolSpecificConfig': firstOutbound,
-      'autoConnect': false,
-      'createdAt': DateTime.now().toIso8601String(),
-    };
+    // Validate UUID format
+    final uuid = protocolConfig['uuid'] as String;
+    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    if (!uuidRegex.hasMatch(uuid)) {
+      throw ConfigurationValidationException(
+        'Invalid UUID format for VLESS',
+        field: 'uuid',
+        value: uuid,
+      );
+    }
+
+    // Validate flow if present
+    if (protocolConfig.containsKey('flow')) {
+      final flow = protocolConfig['flow'] as String;
+      final validFlows = ['xtls-rprx-vision', 'xtls-rprx-vision-udp443'];
+      if (flow.isNotEmpty && !validFlows.contains(flow)) {
+        throw ConfigurationValidationException(
+          'Invalid flow control for VLESS: $flow',
+          field: 'flow',
+          value: flow,
+        );
+      }
+    }
+
+    // Validate transport type if present
+    if (protocolConfig.containsKey('transport')) {
+      final transport = protocolConfig['transport'] as String;
+      final validTransports = ['tcp', 'ws', 'grpc', 'http'];
+      if (!validTransports.contains(transport.toLowerCase())) {
+        throw ConfigurationValidationException(
+          'Unsupported transport type for VLESS: $transport',
+          field: 'transport',
+          value: transport,
+        );
+      }
+    }
+  }
+
+  void _validateVmessForSingbox(Map<String, dynamic> protocolConfig) {
+    if (!protocolConfig.containsKey('uuid') || 
+        (protocolConfig['uuid'] as String).isEmpty) {
+      throw ConfigurationValidationException(
+        'VMess UUID is required for sing-box compatibility',
+        field: 'uuid',
+      );
+    }
+
+    // Validate UUID format
+    final uuid = protocolConfig['uuid'] as String;
+    final uuidRegex = RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
+    if (!uuidRegex.hasMatch(uuid)) {
+      throw ConfigurationValidationException(
+        'Invalid UUID format for VMess',
+        field: 'uuid',
+        value: uuid,
+      );
+    }
+
+    // Validate security method if present
+    if (protocolConfig.containsKey('security')) {
+      final security = protocolConfig['security'] as String;
+      final validSecurity = ['auto', 'aes-128-gcm', 'chacha20-poly1305', 'none'];
+      if (!validSecurity.contains(security)) {
+        throw ConfigurationValidationException(
+          'Invalid security method for VMess: $security',
+          field: 'security',
+          value: security,
+        );
+      }
+    }
+
+    // Validate alterId if present
+    if (protocolConfig.containsKey('alterId')) {
+      final alterId = protocolConfig['alterId'];
+      if (alterId is! int || alterId < 0 || alterId > 65535) {
+        throw ConfigurationValidationException(
+          'Invalid alterId for VMess: must be integer between 0-65535',
+          field: 'alterId',
+          value: alterId,
+        );
+      }
+    }
+
+    // Validate transport type if present
+    if (protocolConfig.containsKey('transport')) {
+      final transport = protocolConfig['transport'] as String;
+      final validTransports = ['tcp', 'ws', 'grpc', 'http'];
+      if (!validTransports.contains(transport.toLowerCase())) {
+        throw ConfigurationValidationException(
+          'Unsupported transport type for VMess: $transport',
+          field: 'transport',
+          value: transport,
+        );
+      }
+    }
+  }
+
+  void _validateTrojanForSingbox(Map<String, dynamic> protocolConfig) {
+    if (!protocolConfig.containsKey('password') || 
+        (protocolConfig['password'] as String).isEmpty) {
+      throw ConfigurationValidationException(
+        'Trojan password is required for sing-box compatibility',
+        field: 'password',
+      );
+    }
+
+    // Validate password length (reasonable minimum)
+    final password = protocolConfig['password'] as String;
+    if (password.length < 8) {
+      throw ConfigurationValidationException(
+        'Trojan password should be at least 8 characters long',
+        field: 'password',
+      );
+    }
+
+    // Validate transport type if present
+    if (protocolConfig.containsKey('transport')) {
+      final transport = protocolConfig['transport'] as String;
+      final validTransports = ['tcp', 'ws'];
+      if (!validTransports.contains(transport.toLowerCase())) {
+        throw ConfigurationValidationException(
+          'Unsupported transport type for Trojan: $transport',
+          field: 'transport',
+          value: transport,
+        );
+      }
+    }
+
+    // Validate TLS configuration (Trojan requires TLS)
+    if (protocolConfig.containsKey('tls') && protocolConfig['tls'] == false) {
+      throw ConfigurationValidationException(
+        'Trojan protocol requires TLS to be enabled',
+        field: 'tls',
+        value: false,
+      );
+    }
+  }
+
+  void _validateShadowsocksForSingbox(Map<String, dynamic> protocolConfig) {
+    if (!protocolConfig.containsKey('method') || 
+        (protocolConfig['method'] as String).isEmpty) {
+      throw ConfigurationValidationException(
+        'Shadowsocks method is required for sing-box compatibility',
+        field: 'method',
+      );
+    }
+
+    if (!protocolConfig.containsKey('password') || 
+        (protocolConfig['password'] as String).isEmpty) {
+      throw ConfigurationValidationException(
+        'Shadowsocks password is required for sing-box compatibility',
+        field: 'password',
+      );
+    }
+
+    // Validate encryption method
+    final method = protocolConfig['method'] as String;
+    final validMethods = [
+      'aes-128-gcm',
+      'aes-192-gcm',
+      'aes-256-gcm',
+      'chacha20-ietf-poly1305',
+      'xchacha20-ietf-poly1305',
+      '2022-blake3-aes-128-gcm',
+      '2022-blake3-aes-256-gcm',
+      '2022-blake3-chacha20-poly1305',
+    ];
+    
+    if (!validMethods.contains(method)) {
+      throw ConfigurationValidationException(
+        'Unsupported Shadowsocks method: $method',
+        field: 'method',
+        value: method,
+      );
+    }
+
+    // Validate password length based on method
+    final password = protocolConfig['password'] as String;
+    if (method.startsWith('2022-blake3-')) {
+      // 2022 methods require base64 encoded keys
+      try {
+        final decoded = base64.decode(password);
+        if (method.contains('aes-128') && decoded.length != 16) {
+          throw ConfigurationValidationException(
+            'Invalid key length for $method: expected 16 bytes',
+            field: 'password',
+          );
+        } else if (method.contains('aes-256') && decoded.length != 32) {
+          throw ConfigurationValidationException(
+            'Invalid key length for $method: expected 32 bytes',
+            field: 'password',
+          );
+        } else if (method.contains('chacha20') && decoded.length != 32) {
+          throw ConfigurationValidationException(
+            'Invalid key length for $method: expected 32 bytes',
+            field: 'password',
+          );
+        }
+      } catch (e) {
+        throw ConfigurationValidationException(
+          'Invalid base64 encoded password for 2022 method',
+          field: 'password',
+        );
+      }
+    } else {
+      // Regular methods require minimum password length
+      if (password.length < 8) {
+        throw ConfigurationValidationException(
+          'Shadowsocks password should be at least 8 characters long',
+          field: 'password',
+        );
+      }
+    }
+
+    // Validate plugin if present
+    if (protocolConfig.containsKey('plugin')) {
+      final plugin = protocolConfig['plugin'] as String;
+      final validPlugins = ['obfs-local', 'v2ray-plugin'];
+      if (plugin.isNotEmpty && !validPlugins.contains(plugin)) {
+        _logger.w('Unknown Shadowsocks plugin: $plugin');
+      }
+    }
   }
 }

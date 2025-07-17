@@ -45,8 +45,13 @@ class WindowsVpnControl implements VpnControlInterface {
   @override
   Future<bool> connect(VpnConfiguration config) async {
     try {
-      final configMap = config.toJson();
-      final result = await _channel.invokeMethod('connect', configMap);
+      // Generate singbox configuration
+      final singboxConfig = _generateSingboxConfig(config);
+      
+      final result = await _channel.invokeMethod('connect', {
+        'config': config.toJson(),
+        'singboxConfig': singboxConfig,
+      });
       return result == true;
     } on PlatformException catch (e) {
       throw VpnException(
@@ -147,6 +152,185 @@ class WindowsVpnControl implements VpnControlInterface {
       );
     } catch (e) {
       throw VpnException('Unexpected error requesting VPN permission: $e');
+    }
+  }
+
+  /// Generates singbox configuration JSON from VPN configuration
+  Map<String, dynamic> _generateSingboxConfig(VpnConfiguration config) {
+    final singboxConfig = {
+      'log': {
+        'level': 'info',
+        'timestamp': true,
+      },
+      'dns': {
+        'servers': [
+          {
+            'tag': 'cloudflare',
+            'address': '1.1.1.1',
+            'strategy': 'prefer_ipv4',
+          },
+          {
+            'tag': 'google',
+            'address': '8.8.8.8',
+            'strategy': 'prefer_ipv4',
+          },
+        ],
+        'rules': [
+          {
+            'outbound': ['any'],
+            'server': 'cloudflare',
+          },
+        ],
+        'final': 'google',
+        'strategy': 'prefer_ipv4',
+      },
+      'inbounds': [
+        {
+          'type': 'tun',
+          'tag': 'tun-in',
+          'interface_name': 'tun0',
+          'inet4_address': '172.19.0.1/30',
+          'mtu': 9000,
+          'auto_route': true,
+          'strict_route': true,
+          'stack': 'system',
+          'sniff': true,
+          'sniff_override_destination': true,
+        },
+      ],
+      'outbounds': [
+        _generateOutboundConfig(config),
+        {
+          'type': 'direct',
+          'tag': 'direct',
+        },
+        {
+          'type': 'block',
+          'tag': 'block',
+        },
+      ],
+      'route': {
+        'rules': [
+          {
+            'inbound': ['tun-in'],
+            'outbound': 'proxy',
+          },
+        ],
+        'final': 'proxy',
+        'auto_detect_interface': true,
+      },
+    };
+
+    return singboxConfig;
+  }
+
+  /// Generates outbound configuration based on VPN protocol
+  Map<String, dynamic> _generateOutboundConfig(VpnConfiguration config) {
+    final baseConfig = {
+      'tag': 'proxy',
+      'server': config.serverAddress,
+      'server_port': config.serverPort,
+    };
+
+    switch (config.protocol) {
+      case VpnProtocol.shadowsocks:
+        return {
+          ...baseConfig,
+          'type': 'shadowsocks',
+          'method': config.protocolSpecificConfig['method'] ?? 'aes-256-gcm',
+          'password': config.protocolSpecificConfig['password'] ?? '',
+        };
+
+      case VpnProtocol.vmess:
+        return {
+          ...baseConfig,
+          'type': 'vmess',
+          'uuid': config.protocolSpecificConfig['uuid'] ?? '',
+          'security': config.protocolSpecificConfig['security'] ?? 'auto',
+          'alter_id': config.protocolSpecificConfig['alterId'] ?? 0,
+          'transport': {
+            'type': 'ws',
+            'path': config.protocolSpecificConfig['path'] ?? '/',
+            'headers': config.protocolSpecificConfig['headers'] ?? {},
+          },
+        };
+
+      case VpnProtocol.trojan:
+        return {
+          ...baseConfig,
+          'type': 'trojan',
+          'password': config.protocolSpecificConfig['password'] ?? '',
+          'tls': {
+            'enabled': true,
+            'server_name': config.protocolSpecificConfig['sni'] ?? config.serverAddress,
+            'insecure': config.protocolSpecificConfig['allowInsecure'] ?? false,
+          },
+        };
+
+      case VpnProtocol.vless:
+        return {
+          ...baseConfig,
+          'type': 'vless',
+          'uuid': config.protocolSpecificConfig['uuid'] ?? '',
+          'flow': config.protocolSpecificConfig['flow'] ?? '',
+          'transport': {
+            'type': config.protocolSpecificConfig['network'] ?? 'tcp',
+            'path': config.protocolSpecificConfig['path'] ?? '/',
+          },
+          'tls': {
+            'enabled': config.protocolSpecificConfig['tls'] ?? false,
+            'server_name': config.protocolSpecificConfig['sni'] ?? config.serverAddress,
+          },
+        };
+
+      case VpnProtocol.hysteria2:
+        return {
+          ...baseConfig,
+          'type': 'hysteria2',
+          'password': config.protocolSpecificConfig['password'] ?? '',
+          'tls': {
+            'enabled': true,
+            'server_name': config.protocolSpecificConfig['sni'] ?? config.serverAddress,
+            'insecure': config.protocolSpecificConfig['allowInsecure'] ?? false,
+          },
+        };
+
+      case VpnProtocol.tuic:
+        return {
+          ...baseConfig,
+          'type': 'tuic',
+          'uuid': config.protocolSpecificConfig['uuid'] ?? '',
+          'password': config.protocolSpecificConfig['password'] ?? '',
+          'congestion_control': config.protocolSpecificConfig['congestionControl'] ?? 'cubic',
+          'tls': {
+            'enabled': true,
+            'server_name': config.protocolSpecificConfig['sni'] ?? config.serverAddress,
+          },
+        };
+
+      case VpnProtocol.hysteria:
+        return {
+          ...baseConfig,
+          'type': 'hysteria',
+          'auth_str': config.protocolSpecificConfig['auth'] ?? '',
+          'up_mbps': config.protocolSpecificConfig['upMbps'] ?? 10,
+          'down_mbps': config.protocolSpecificConfig['downMbps'] ?? 50,
+          'tls': {
+            'enabled': true,
+            'server_name': config.protocolSpecificConfig['sni'] ?? config.serverAddress,
+            'insecure': config.protocolSpecificConfig['allowInsecure'] ?? false,
+          },
+        };
+
+      case VpnProtocol.wireguard:
+        return {
+          ...baseConfig,
+          'type': 'wireguard',
+          'private_key': config.protocolSpecificConfig['privateKey'] ?? '',
+          'peer_public_key': config.protocolSpecificConfig['publicKey'] ?? '',
+          'pre_shared_key': config.protocolSpecificConfig['preSharedKey'] ?? '',
+          'local_address': config.protocolSpecificConfig['localAddress'] ?? ['10.0.0.2/32'],
+        };
     }
   }
 

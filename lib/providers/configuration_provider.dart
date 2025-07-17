@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/vpn_configuration.dart';
+import '../services/configuration_manager.dart';
 
 /// Provider for sample VPN configurations for development and testing
 final sampleConfigurationsProvider = Provider<List<VpnConfiguration>>((ref) {
@@ -56,8 +57,68 @@ final sampleConfigurationsProvider = Provider<List<VpnConfiguration>>((ref) {
   ];
 });
 
+/// Provider for the configuration manager instance
+final configurationManagerProvider = Provider<ConfigurationManager>((ref) {
+  return ConfigurationManager();
+});
+
+/// Provider for loading actual saved configurations
+final savedConfigurationsProvider = FutureProvider<List<VpnConfiguration>>((ref) async {
+  final configManager = ref.watch(configurationManagerProvider);
+  try {
+    return await configManager.loadConfigurations();
+  } catch (e) {
+    // If loading fails, return empty list
+    return <VpnConfiguration>[];
+  }
+});
+
+/// Provider for all configurations (combines saved and sample for development)
+final allConfigurationsProvider = Provider<AsyncValue<List<VpnConfiguration>>>((ref) {
+  final savedConfigs = ref.watch(savedConfigurationsProvider);
+  
+  return savedConfigs.when(
+    data: (configs) {
+      // If we have saved configurations, use them; otherwise use sample data for development
+      if (configs.isNotEmpty) {
+        return AsyncValue.data(configs);
+      } else {
+        // Return sample configurations for development when no saved configs exist
+        final sampleConfigs = ref.watch(sampleConfigurationsProvider);
+        return AsyncValue.data(sampleConfigs);
+      }
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (error, stack) {
+      // On error, fall back to sample configurations
+      final sampleConfigs = ref.watch(sampleConfigurationsProvider);
+      return AsyncValue.data(sampleConfigs);
+    },
+  );
+});
+
 /// Provider for the currently selected configuration
 final selectedConfigurationProvider = StateProvider<VpnConfiguration?>((ref) {
-  final configs = ref.watch(sampleConfigurationsProvider);
-  return configs.isNotEmpty ? configs.first : null;
+  final configsAsync = ref.watch(allConfigurationsProvider);
+  return configsAsync.when(
+    data: (configs) => configs.isNotEmpty ? configs.first : null,
+    loading: () => null,
+    error: (_, __) => null,
+  );
+});
+
+/// Provider to refresh configurations (used after import/add/delete operations)
+final configurationRefreshProvider = StateProvider<int>((ref) => 0);
+
+/// Provider that automatically refreshes when configurations change
+final refreshableConfigurationsProvider = FutureProvider<List<VpnConfiguration>>((ref) async {
+  // Watch the refresh trigger
+  ref.watch(configurationRefreshProvider);
+  
+  final configManager = ref.watch(configurationManagerProvider);
+  try {
+    return await configManager.loadConfigurations();
+  } catch (e) {
+    return <VpnConfiguration>[];
+  }
 });

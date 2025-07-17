@@ -2,6 +2,7 @@ import 'dart:io';
 import '../interfaces/vpn_control_interface.dart';
 import '../interfaces/configuration_interface.dart';
 import 'windows_vpn_control.dart';
+import 'android_vpn_control.dart';
 import 'windows_configuration.dart';
 import 'android_configuration.dart';
 
@@ -30,8 +31,7 @@ class PlatformFactory {
     if (Platform.isWindows) {
       return WindowsVpnControl();
     } else if (Platform.isAndroid) {
-      // TODO: Implement Android VPN control when task 11 is completed
-      throw UnsupportedError('Android VPN control not yet implemented');
+      return AndroidVpnControl();
     } else {
       throw UnsupportedError('Platform ${Platform.operatingSystem} is not supported');
     }
@@ -52,6 +52,8 @@ class PlatformFactory {
   static void dispose() {
     if (_vpnControlInstance is WindowsVpnControl) {
       (_vpnControlInstance as WindowsVpnControl).dispose();
+    } else if (_vpnControlInstance is AndroidVpnControl) {
+      (_vpnControlInstance as AndroidVpnControl).dispose();
     }
     _vpnControlInstance = null;
     _configurationInstance = null;

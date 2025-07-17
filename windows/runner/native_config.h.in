@@ -1,0 +1,8 @@
+#ifndef NATIVE_CONFIG_H_
+#define NATIVE_CONFIG_H_
+
+// Native library configuration - auto-generated
+#define SINGBOX_EXECUTABLE_PATH "@VALIDATED_SINGBOX_PATH@"
+#define NATIVE_LIBRARY_CONFIGURED 1
+
+#endif // NATIVE_CONFIG_H_

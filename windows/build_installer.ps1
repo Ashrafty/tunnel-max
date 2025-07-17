@@ -14,6 +14,26 @@ if (-not $nsisPath) {
     exit 1
 }
 
+# Validate sing-box executable before building
+Write-Host "Validating sing-box executable..." -ForegroundColor Blue
+$singboxPath = "sing-box\sing-box.exe"
+if (-not (Test-Path $singboxPath)) {
+    Write-Host "Error: sing-box executable not found at: $singboxPath" -ForegroundColor Red
+    Write-Host "Run 'scripts\setup_singbox_binaries.ps1' to download sing-box binary" -ForegroundColor Yellow
+    Write-Host ""
+    Read-Host "Press Enter to exit"
+    exit 1
+}
+
+# Check sing-box executable size (should be at least 10MB)
+$singboxSize = (Get-Item $singboxPath).Length
+if ($singboxSize -lt 10MB) {
+    Write-Host "Warning: sing-box executable seems too small ($([math]::Round($singboxSize/1MB, 2)) MB)" -ForegroundColor Yellow
+    Write-Host "This might indicate a corrupted or placeholder file" -ForegroundColor Yellow
+} else {
+    Write-Host "sing-box executable validated: $([math]::Round($singboxSize/1MB, 2)) MB" -ForegroundColor Green
+}
+
 # Build Flutter app for Windows release
 Write-Host "Building Flutter app for Windows..." -ForegroundColor Blue
 flutter build windows --release

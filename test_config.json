@@ -1,0 +1,20 @@
+{
+  "id": "test-config-1",
+  "name": "Test VLESS Server",
+  "serverAddress": "example.com",
+  "serverPort": 443,
+  "protocol": "vless",
+  "authMethod": "password",
+  "protocolSpecificConfig": {
+    "uuid": "12345678-1234-1234-1234-123456789abc",
+    "flow": "",
+    "network": "tcp",
+    "path": "/",
+    "host": "",
+    "tls": true,
+    "sni": "example.com"
+  },
+  "autoConnect": false,
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "lastUsed": null
+}

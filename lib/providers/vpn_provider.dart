@@ -8,11 +8,11 @@ import '../models/network_stats.dart';
 import '../services/vpn_service_manager.dart';
 import '../services/configuration_manager.dart';
 import '../services/connection_monitor.dart';
-import '../platform/vpn_control_platform.dart';
+import '../platform/platform_factory.dart';
 
 /// Provider for VPN service manager
 final vpnServiceManagerProvider = Provider<VpnServiceManager>((ref) {
-  final vpnControl = VpnControlPlatform();
+  final vpnControl = PlatformFactory.getVpnControl();
   final configManager = ConfigurationManager();
   final logger = Logger();
   
@@ -25,7 +25,7 @@ final vpnServiceManagerProvider = Provider<VpnServiceManager>((ref) {
 
 /// Provider for connection monitor
 final connectionMonitorProvider = Provider<ConnectionMonitor>((ref) {
-  final vpnControl = VpnControlPlatform();
+  final vpnControl = PlatformFactory.getVpnControl();
   final logger = Logger();
   
   final monitor = ConnectionMonitor(
