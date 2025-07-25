@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+.env
