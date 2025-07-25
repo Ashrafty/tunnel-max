@@ -4,8 +4,9 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
-from .models import AppUser, Session
-from django.db.models import Sum
+from .models import AppUser, Session, ServerConfig
+from django.db.models import Sum, Count
+from django.http import JsonResponse
 
 @api_view(['POST'])
 def start_session(request):
@@ -50,3 +51,34 @@ def stats(request):
         'connected_users': connected,
         'total_data_MB': round(total_mb, 2)
     })
+
+def stats(request):
+    total_users = Session.objects.values('user_id').distinct().count()
+    total_sessions = Session.objects.count()
+    total_data_used = Session.objects.aggregate(Sum('data_used_mb'))['data_used_mb__sum'] or 0
+    active_sessions = Session.objects.filter(end_time__isnull=True).count()
+
+    os_stats = Session.objects.values('device_os').annotate(count=Count('device_os')).order_by('-count')
+    app_stats = Session.objects.values('app_version').annotate(count=Count('app_version')).order_by('-count')
+
+    return JsonResponse({
+        'total_users': total_users,
+        'total_sessions': total_sessions,
+        'active_sessions': active_sessions,
+        'total_data_used_mb': round(total_data_used, 2),
+        'top_os_versions': list(os_stats),
+        'top_app_versions': list(app_stats),
+    })
+
+def server_config(request):
+    config = ServerConfig.objects.last()
+    if config:
+        return JsonResponse({
+            "server_ip": config.server_ip,
+            "port": config.port,
+            "protocol": config.protocol,
+            "dns": config.dns,
+            "message": config.message
+        })
+    else:
+        return JsonResponse({"error": "No config found"}, status=404)

@@ -23,3 +23,14 @@ class AppInstall(models.Model):
     installed_at = models.DateTimeField(auto_now_add=True)
     os_version = models.CharField(max_length=100)
     app_version = models.CharField(max_length=50)
+
+class ServerConfig(models.Model):
+    server_ip = models.GenericIPAddressField()
+    port = models.PositiveIntegerField()
+    protocol = models.CharField(max_length=10)  # e.g. 'tcp', 'udp'
+    dns = models.CharField(max_length=100)
+    message = models.TextField(blank=True, null=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.server_ip}:{self.port}"
